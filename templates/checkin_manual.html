@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual Check-In</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255,255,255,0.15);
+      padding: 40px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      max-width: 400px;
+      width: 100%;
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    h1 { 
+      margin: 0 0 20px; 
+      font-size: 2em; 
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 10px;
+      font-size: 1em;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      box-sizing: border-box;
+    }
+    input::placeholder {
+      color: rgba(255,255,255,0.7);
+    }
+    input[readonly] {
+      background: rgba(255,255,255,0.3);
+      cursor: not-allowed;
+    }
+    .btn {
+      width: 100%;
+      padding: 12px 24px;
+      background: white;
+      color: #667eea;
+      text-decoration: none;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      margin-top: 10px;
+    }
+    .btn:hover {
+      background: #f1f1f1;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .cancel-btn {
+      background: rgba(255,255,255,0.3);
+      color: white;
+    }
+    .cancel-btn:hover {
+      background: rgba(255,255,255,0.4);
+    }
+    .button-row {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+    }
+    .button-row .btn {
+      flex: 1;
+    }
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .message {
+      font-size: 1.1em;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+    .info-box {
+      background: rgba(255,255,255,0.2);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .info-box p {
+      margin: 8px 0;
+      font-size: 1em;
+    }
+    .info-box strong {
+      font-size: 1.1em;
+    }
+    .error {
+      color: #ffcccc;
+    }
+    .success {
+      color: #a8ffb8;
+    }
+    #form-screen, #confirmation-screen, #result-screen {
+      display: none;
+    }
+    #form-screen {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Form Screen -->
+    <div id="form-screen">
+      <h1>Manual Check-In</h1>
+      <form id="checkinForm">
+        <input type="text" id="Employee_no" placeholder="Enter Employee No" required>
+        <div class="button-row">
+          <button type="submit" class="btn">Look Up Employee</button>
+          <button type="button" class="btn cancel-btn" onclick="cancelLookup()">Cancel</button>
+        </div>
+      </form>
+      <p class="message" id="message"></p>
+    </div>
+
+    <!-- Confirmation Screen -->
+    <div id="confirmation-screen">
+      <h1>✅ Confirm Check-In</h1>
+      <div class="info-box" id="employee-info">
+        <p><strong>Employee No:</strong> <span id="employee-no"></span></p>
+        <p><strong>Employee Name:</strong> <span id="employee-name"></span></p>
+        <p><strong>Department:</strong> <span id="employee-dept"></span></p>
+        <p><strong>Purpose:</strong> <span id="employee-purpose"></span></p>
+        <p><strong>Checked Out:</strong> <span id="checkout-time"></span></p>
+      </div>
+      <p class="message">Do you want to check in now?</p>
+      <div class="button-row">
+        <button class="btn" id="confirm-btn" onclick="confirmCheckin()">Yes, Check In</button>
+        <button type="button" class="btn cancel-btn" onclick="cancelLookup()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen">
+      <h1 id="result-title">Processing...</h1>
+      <div class="spinner" id="result-spinner"></div>
+      <p class="message" id="result-message"></p>
+      <p class="message" id="duration-message" style="font-size: 1.3em; font-weight: bold; margin-top: 10px;"></p>
+    </div>
+  </div>
+
+  <script>
+    const formScreen = document.getElementById('form-screen');
+    const confirmationScreen = document.getElementById('confirmation-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const resultSpinner = document.getElementById('result-spinner');
+    const resultTitle = document.getElementById('result-title');
+    const resultMessage = document.getElementById('result-message');
+    const durationMessage = document.getElementById('duration-message');
+    
+    const form = document.getElementById('checkinForm');
+    const message = document.getElementById('message');
+    const empNoInput = document.getElementById('Employee_no');
+    const confirmBtn = document.getElementById('confirm-btn');
+
+    let currentEmployeeNo = null;
+
+    // Auto-capitalize Employee No input
+    empNoInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+
+    // Reset and go back to main form
+    function cancelLookup() {
+      formScreen.style.display = 'block';
+      confirmationScreen.style.display = 'none';
+      resultScreen.style.display = 'none';
+      form.reset();
+      message.textContent = '';
+      empNoInput.focus();
+      currentEmployeeNo = null;
+    }
+
+    // Handle form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const empNo = empNoInput.value.trim();
+      if (!empNo) {
+        message.textContent = '❌ Please enter an employee number';
+        message.className = 'message error';
+        return;
+      }
+
+      message.textContent = 'Looking up employee...';
+      message.className = 'message';
+
+      try {
+        // Check if employee has active checkout
+        const statusRes = await fetch(`/checkout-status/${empNo}`);
+        const statusData = await statusRes.json();
+
+        if (!statusData.active) {
+          message.textContent = '❌ No active checkout found for this employee';
+          message.className = 'message error';
+          return;
+        }
+
+        // Show confirmation screen
+        currentEmployeeNo = statusData.Employee_no;
+        document.getElementById('employee-no').textContent = statusData.Employee_no;
+        document.getElementById('employee-name').textContent = statusData.Employee_name;
+        document.getElementById('employee-dept').textContent = statusData.Department;
+        document.getElementById('employee-purpose').textContent = statusData.Purpose;
+        
+        const checkoutTime = new Date(statusData.checkout_time);
+        document.getElementById('checkout-time').textContent = checkoutTime.toLocaleString();
+
+        formScreen.style.display = 'none';
+        confirmationScreen.style.display = 'block';
+
+      } catch (err) {
+        console.error('Lookup error:', err);
+        message.textContent = '❌ Network error. Please try again.';
+        message.className = 'message error';
+      }
+    });
+
+    async function confirmCheckin() {
+      if (!currentEmployeeNo) return;
+
+      confirmBtn.disabled = true;
+      confirmationScreen.style.display = 'none';
+      resultScreen.style.display = 'block';
+      resultSpinner.style.display = 'block';
+      resultTitle.textContent = '⏳ Checking In...';
+      resultMessage.textContent = 'Please wait...';
+      resultMessage.className = 'message';
+      durationMessage.textContent = '';
+
+      try {
+        const res = await fetch(`/checkin/${currentEmployeeNo}`, { method: 'PUT' });
+        resultSpinner.style.display = 'none';
+
+        if (res.ok) {
+          const data = await res.json();
+          
+          resultTitle.textContent = '✅ Success!';
+          resultMessage.textContent = 'Checked in successfully! Redirecting...';
+          resultMessage.className = 'message success';
+          
+          if (data.duration) {
+            durationMessage.textContent = `⏱️ Duration: ${data.duration}`;
+            durationMessage.className = 'message success';
+          }
+        } else {
+          const data = await res.json();          
+          resultTitle.textContent = '❌ Check-In Failed';
+          resultMessage.textContent = data.error || 'Check-in failed';
+          resultMessage.className = 'message error';
+        }
+      } catch (err) {
+        console.error('Check-in error:', err);
+        resultSpinner.style.display = 'none';
+        resultTitle.textContent = '❌ Error';
+        resultMessage.textContent = 'Network error. Please try again.';
+        resultMessage.className = 'message error';
+      }
+    }
+  </script>
+</body>
+</html>

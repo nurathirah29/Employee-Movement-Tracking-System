@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Checked Out Employees</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+  <div class="container">
+    <h1>📋 Checked Out Employees</h1>
+    
+    <div class="header-info">
+      <div id="last-updated">Loading data...</div>
+      <button class="btn" onclick="openLoginModal()">📊 History</button>
+    </div>
+    
+    <div id="spinner" class="spinner"></div>
+
+    <!-- Desktop Table View -->
+    <div class="table-container" id="table-view" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th>Employee No</th>
+            <th>Employee Name</th>
+            <th>Department</th>
+            <th>Location</th>
+            <th>Purpose</th>
+            <th>Checkout Time</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Mobile Card View -->
+    <div class="card-container" id="card-view"></div>
+  </div>
+
+  <script>
+    const tableBody = document.getElementById('table-body');
+    const cardView = document.getElementById('card-view');
+    const tableView = document.getElementById('table-view');
+    const spinner = document.getElementById('spinner');
+    const updatedEl = document.getElementById('last-updated');
+
+    function isMobileView() {
+      return window.innerWidth <= 768;
+    }
+
+    function formatDateTime(dateString) {
+      const date = new Date(dateString);
+      const weekday = date.toLocaleString('en-US', { weekday: 'short' });
+      const day = date.getDate();
+      const month = date.toLocaleString('en-US', { month: 'short' });
+      const year = date.getFullYear();
+      const time = date.toLocaleString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      
+      return `${weekday}, ${day} ${month} ${year} ${time}`;
+    }
+
+    function renderTableView(data) {
+      tableBody.innerHTML = '';
+      
+      if (data.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state">
+              No employees currently checked out
+            </td>
+          </tr>
+        `;
+      } else {
+        data.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${row.Employee_no}</td>
+            <td>${row.Employee_name}</td>
+            <td>${row.Department}</td>
+            <td>${row.Location}</td>
+            <td>${row.Purpose}</td>
+            <td>${formatDateTime(row.checkout_time)}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      }
+    }
+
+    function renderCardView(data) {
+      cardView.innerHTML = '';
+      
+      if (data.length === 0) {
+        cardView.innerHTML = `
+          <div class="empty-state">
+            No employees currently checked out
+          </div>
+        `;
+      } else {
+        data.forEach(row => {
+          const card = document.createElement('div');
+          card.className = 'employee-card';
+          card.innerHTML = `
+            <div class="card-header">${row.Employee_name}</div>
+            <div class="card-row">
+              <span class="card-label">Employee No:</span>
+              <span class="card-value">${row.Employee_no}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Department:</span>
+              <span class="card-value">${row.Department}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Location:</span>
+              <span class="card-value">${row.Location}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Purpose:</span>
+              <span class="card-value">${row.Purpose}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">Checkout Time:</span>
+              <span class="card-value">${formatDateTime(row.checkout_time)}</span>
+            </div>
+          `;
+          cardView.appendChild(card);
+        });
+      }
+    }
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/checkout-history');
+        
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid data format received');
+        }
+
+        spinner.style.display = 'none';
+
+        if (isMobileView()) {
+          tableView.style.display = 'none';
+          cardView.style.display = 'block';
+          renderCardView(data);
+        } else {
+          cardView.style.display = 'none';
+          tableView.style.display = 'block';
+          renderTableView(data);
+        }
+
+        const now = new Date();
+        updatedEl.textContent = `Last updated: ${now.toLocaleTimeString()}`;
+      } catch (err) {
+        console.error('Failed to load dashboard:', err);
+        updatedEl.textContent = 'Error loading data. Retrying...';
+        spinner.style.display = 'none';
+        
+        if (isMobileView()) {
+          cardView.style.display = 'block';
+          cardView.innerHTML = '<div class="empty-state">Error loading data. Please refresh.</div>';
+        } else {
+          tableView.style.display = 'block';
+          tableBody.innerHTML = '<tr><td colspan="6" class="empty-state">Error loading data. Please refresh.</td></tr>';
+        }
+      }
+    }
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const shouldShowMobile = isMobileView();
+        const isShowingMobile = cardView.style.display === 'block';
+        
+        if (shouldShowMobile !== isShowingMobile) {
+          loadDashboard();
+        }
+      }, 250);
+    });
+
+    loadDashboard();
+
+    setInterval(loadDashboard, 60000);
+
+    function openLoginModal() {
+      document.getElementById('loginModal').style.display = 'flex';
+      document.getElementById('username').focus();
+    }
+
+    function closeLoginModal() {
+      document.getElementById('loginModal').style.display = 'none';
+      document.getElementById('loginForm').reset();
+      document.getElementById('loginError').style.display = 'none';
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('loginError');
+      
+      try {
+        const res = await fetch('/hr-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: username, password: password })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+          window.location.href = '/hr-history';
+        } else {
+          errorEl.textContent = data.error || 'Invalid credentials';
+          errorEl.style.display = 'block';
+        }
+      } catch (err) {
+        errorEl.textContent = 'Login failed. Please try again.';
+        errorEl.style.display = 'block';
+      }
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('loginModal').style.display === 'flex') {
+        closeLoginModal();
+      }
+    });
+  </script>
+
+  <!-- Login Modal -->
+  <div id="loginModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:#fff; padding:30px; border-radius:12px; max-width:400px; width:90%; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+      <h2 style="margin:0 0 20px; text-align:center; color:#4e73df;">HR Login</h2>
+      
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div style="margin-bottom:15px;">
+          <label for="username" style="display:block; margin-bottom:5px; font-weight:600; color:#666;">Username:</label>
+          <input type="text" id="username" name="username" autocomplete="username" required
+          style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
+        </div>
+        
+        <div style="margin-bottom:20px;">
+          <label for="password" style="display:block; margin-bottom:5px; font-weight:600; color:#666;">Password:</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required
+          style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-size:0.9em;">
+        </div>
+        
+        <div id="loginError" 
+          style="color:#e74a3b; font-size:0.85em; margin-bottom:15px; display:none; text-align:center;">
+        </div>
+        
+        <div style="display:flex; gap:10px;">
+          <button type="button" onclick="closeLoginModal()" class="btn btn-secondary" style="flex:1;">Cancel</button>
+          <button type="submit" class="btn" style="flex:1;">Login</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</body>
+</html>

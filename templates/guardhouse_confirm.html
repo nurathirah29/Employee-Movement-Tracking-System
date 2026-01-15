@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guardhouse Confirmation</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255,255,255,0.15);
+      padding: 40px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      max-width: 400px;
+      width: 100%;
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    h1 { margin: 0 0 20px; font-size: 2em; }
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .message {
+      font-size: 1.1em;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+    .info-box {
+      background: rgba(255,255,255,0.2);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: left;
+    }
+    .info-box p {
+      margin: 8px 0;
+      font-size: 1em;
+    }
+    .error { color: #ffcccc; }
+    .success { color: #a8ffb8; }
+    .btn {
+      width: 100%;
+      padding: 12px 24px;
+      background: white;
+      color: #667eea;
+      text-decoration: none;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      margin-top: 15px;
+    }
+    .btn:hover {
+      background: #f1f1f1;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Checkout Confirmation</h1>
+    <div class="spinner" id="spinner"></div>
+    <p class="message" id="message">Confirming your checkout...</p>
+    <div class="info-box" id="info" style="display:none;"></div>
+  </div>
+
+  <script>
+    const spinner = document.getElementById('spinner');
+    const message = document.getElementById('message');
+    const info = document.getElementById('info');
+
+    async function confirmCheckout() {
+      try {
+        const res = await fetch('/confirm-checkout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+
+        spinner.style.display = 'none';
+
+        if (res.ok) {
+          const data = await res.json();
+          message.textContent = '✅ Checkout Confirmed!';
+          message.className = 'message success';
+          
+          info.style.display = 'block';
+          info.innerHTML = `
+            <p><strong>Employee No:</strong> ${data.Employee_no}</p>
+            <p><strong>Employee Name:</strong> ${data.Employee_name}</p>
+            <p><strong>Department:</strong> ${data.Department}</p>
+            <p><strong>Location:</strong> ${data.Location}</p>
+            <p><strong>Purpose:</strong> ${data.Purpose}</p>
+            <p style="margin-top:15px; color:#a8ffb8;"><strong>✓ You are now checked out</strong></p>
+            <p style="font-size:0.9em; margin-top:10px;">Scan the QR code again when you return to check in.</p>
+          `;
+        } else {
+          const data = await res.json();
+          message.textContent = '❌ ' + (data.error || 'Confirmation failed');
+          message.className = 'message error';
+        }
+      } catch (err) {
+        console.error('Confirmation error:', err);
+        spinner.style.display = 'none';
+        message.textContent = '❌ Network error. Please try again.';
+        message.className = 'message error';
+      }
+    }
+
+    // Auto-confirm on page load
+    confirmCheckout();
+  </script>
+</body>
+</html>

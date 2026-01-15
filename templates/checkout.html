@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Check-Out</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255,255,255,0.15);
+      padding: 40px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      max-width: 400px;
+      width: 100%;
+      animation: fadeIn 0.5s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    h1 {
+      margin: 0 0 20px;
+      font-size: 2em;
+    }
+    input, select, button {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 10px;
+      font-size: 1em;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      box-sizing: border-box;
+    }
+    input::placeholder {
+      color: rgba(255,255,255,0.7);
+    }
+    input[readonly] {
+      background: rgba(255,255,255,0.3);
+      cursor: not-allowed;
+    }
+    select {
+      cursor: pointer;
+    }
+    select option {
+      background: #667eea;
+      color: white;
+    }
+    button {
+      background: white;
+      color: #667eea;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    button:hover {
+      background: #f1f1f1;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.3);
+      color: white;
+      font-size: 0.9em;
+      padding: 10px;
+      margin-top: 5px;
+    }
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.4);
+    }
+    .message {
+      font-size: 1.1em;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+    .message.error {
+      color: #ffcccc;
+    }
+    .message.success {
+      color: #a8ffb8;
+    }
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    #form-screen, #result-screen {
+      display: none;
+    }
+    #form-screen {
+      display: block;
+    }
+    .footer-link {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.3);
+    }
+    .footer-link p {
+      font-size: 0.9em;
+      margin-bottom: 10px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Form Screen -->
+    <div id="form-screen">
+      <h1>Employee <br> Check-Out</h1>
+      <form id="checkoutForm">
+        <input type="text" id="Employee_no" name="Employee_no" placeholder="Enter Employee No" required>
+        <input type="text" id="Employee_name" name="Employee_name" placeholder="Employee Name" readonly>
+        <input type="text" id="Department" name="Department" placeholder="Department" readonly>
+        <div style="position: relative;">
+          <input type="text" id="LocationDisplay" placeholder="Select Location"/>
+          <div id="LocationDropdown" 
+            style="
+              display:none;
+              position:absolute;
+              width:100%;
+              background:gray;
+              border-radius:10px;
+              max-height:220px;
+              overflow-y:auto;
+              z-index:1000;
+              box-shadow:0 4px 15px rgba(0,0,0,0.3);
+            "
+          >
+            <!-- Search INSIDE dropdown -->
+            <input type="text" id="LocationSearch" placeholder="Search..." style="margin:10px; width:calc(100% - 20px);"/>
+            <div class="location-option">BP</div>
+            <div class="location-option">ESA</div>
+            <div class="location-option">NPI</div>
+            <div class="location-option">CHI</div>
+            <div class="location-option">RKSA</div>
+            <div class="location-option">ERM 1</div>
+            <div class="location-option">ERM 2</div>
+            <div class="location-option">Norsec</div>
+            <div class="location-option">RK Store</div>
+            <div class="location-option">JTK</div>
+            <div class="location-option">KWSP</div>
+            <div class="location-option">LHDN</div>
+            <div class="location-option">MBSP</div>
+            <div class="location-option">MITI Penang</div>
+            <div class="location-option">Kastam Seberang Jaya</div>
+            <div class="location-option">Other</div>
+          </div>
+        </div>
+
+        <!-- Other Location -->
+        <input type="text" id="OtherLocation" placeholder="Enter Other Location" style="display:none;"/>
+        <input type="text" id="Purpose" name="Purpose" placeholder="Purpose" required>
+        <button type="submit">Check Out</button>
+      </form>
+      <p class="message" id="message"></p>
+      
+      <!-- Manual Check-In
+      <div class="footer-link">
+        <p>Already checked out but lost your session?</p>
+        <button class="btn-secondary" onclick="window.location.href='/checkin-form'">Manual Check-In</button>
+      </div> -->
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen">
+      <h1 id="result-title">Processing...</h1>
+      <div class="spinner" id="result-spinner"></div>
+      <p class="message" id="result-message"></p>
+    </div>
+  </div>
+
+  <script>
+    const formScreen = document.getElementById('form-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const resultSpinner = document.getElementById('result-spinner');
+    const resultTitle = document.getElementById('result-title');
+    const resultMessage = document.getElementById('result-message');
+
+    const form = document.getElementById('checkoutForm');
+    const message = document.getElementById('message');
+    const empNoInput = document.getElementById('Employee_no');
+    const empNameInput = document.getElementById('Employee_name');
+    const deptInput = document.getElementById('Department');
+    const purposeInput = document.getElementById('Purpose');
+
+    /* ===== CUSTOM LOCATION DROPDOWN ===== */
+    const locationDisplay = document.getElementById('LocationDisplay');
+    const locationDropdown = document.getElementById('LocationDropdown');
+    const locationSearch = document.getElementById('LocationSearch');
+    const locationOptions = document.querySelectorAll('.location-option');
+    const otherLocationInput = document.getElementById('OtherLocation');
+
+    let selectedLocation = '';
+
+    // Open dropdown
+    locationDisplay.addEventListener('click', () => {
+      locationDropdown.style.display = 'block';
+      locationSearch.focus();
+    });
+
+    // Filter inside dropdown
+    locationSearch.addEventListener('input', () => {
+      const filter = locationSearch.value.toLowerCase();
+      locationOptions.forEach(opt => {
+        opt.style.display = opt.textContent.toLowerCase().includes(filter)
+          ? 'block'
+          : 'none';
+      });
+    });
+
+    // Select location
+    locationOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        selectedLocation = option.textContent;
+        locationDisplay.value = selectedLocation;
+        locationDropdown.style.display = 'none';
+        locationSearch.value = '';
+
+        if (selectedLocation === 'Other') {
+          otherLocationInput.style.display = 'block';
+          otherLocationInput.required = true;
+        } else {
+          otherLocationInput.style.display = 'none';
+          otherLocationInput.required = false;
+          otherLocationInput.value = '';
+        }
+      });
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#LocationDropdown') && e.target !== locationDisplay) {
+        locationDropdown.style.display = 'none';
+      }
+    });
+
+    /* ===== EMPLOYEE NUMBER ===== */
+    empNoInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase();
+    });
+
+    // Fetch employee details
+    empNoInput.addEventListener('blur', async () => {
+      const empNo = empNoInput.value.trim();
+      if (!empNo) return;
+
+      message.textContent = 'Fetching employee data...';
+      message.className = 'message';
+
+      try {
+        const res = await fetch(`/employee/${empNo}`);
+        const data = await res.json();
+
+        if (res.ok) {
+          empNameInput.value = data.Employee_name;
+          deptInput.value = data.Department;
+          message.textContent = '✅ Employee found';
+          message.className = 'message success';
+        } else {
+          empNameInput.value = '';
+          deptInput.value = '';
+          message.textContent = '❌ Employee not found';
+          message.className = 'message error';
+        }
+      } catch {
+        empNameInput.value = '';
+        deptInput.value = '';
+        message.textContent = '❌ Error fetching employee';
+        message.className = 'message error';
+      }
+    });
+
+    /* ===== FORM SUBMIT ===== */
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const finalLocation =
+        selectedLocation === 'Other'
+          ? otherLocationInput.value.trim()
+          : selectedLocation;
+
+      if (!deptInput.value.trim()) {
+        message.textContent = '❌ Invalid Employee No. Please check again.';
+        message.className = 'message error';
+        return;
+      }
+
+      if (!finalLocation) {
+        message.textContent = '❌ Please select a location.';
+        message.className = 'message error';
+        return;
+      }
+
+      if (selectedLocation === 'Other' && !otherLocationInput.value.trim()) {
+        message.textContent = '❌ Please enter the other location.';
+        message.className = 'message error';
+        return;
+      }
+
+      const data = {
+        Employee_no: empNoInput.value.trim(),
+        Department: deptInput.value.trim(),
+        Location: finalLocation,
+        Purpose: purposeInput.value.trim()
+      };
+
+      // Show result screen
+      formScreen.style.display = 'none';
+      resultScreen.style.display = 'block';
+      resultSpinner.style.display = 'block';
+      resultTitle.textContent = '⏳ Processing...';
+      resultMessage.textContent = 'Please wait...';
+      resultMessage.className = 'message';
+
+      try {
+        const res = await fetch('/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        resultSpinner.style.display = 'none';
+
+        if (res.ok) {
+          resultTitle.textContent = 'Pre-Registered! ✅';
+          resultMessage.innerHTML = `
+            <strong>Next Step:</strong><br>
+            Scan the <strong>Guardhouse QR code</strong> to complete your checkout.
+          `;
+          resultMessage.className = 'message success';
+        } else {
+          const json = await res.json();
+          resultTitle.textContent = '❌ Check-Out Failed';
+          resultMessage.textContent = json.error || 'Failed to check out';
+          resultMessage.className = 'message error';
+        }
+      } catch {
+        resultSpinner.style.display = 'none';
+        resultTitle.textContent = '❌ Error';
+        resultMessage.textContent = 'Network error. Please try again.';
+        resultMessage.className = 'message error';
+      }
+    });
+  </script>
+</body>
+</html>

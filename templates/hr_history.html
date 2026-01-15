@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Movement History</title>
+  <link rel="stylesheet" href="/static/css/history.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-left">
+        <h1>Employee Movement Tracking System History</h1>
+        <div class="header-subtitle">Track employee movements</div>
+      </div>
+
+      <div class="header-right">
+        <button class="btn btn-secondary" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="controls-section">
+      <div class="filter-row">
+        <div class="filter-group">
+          <label for="filter-month">📅 Filter by Month</label>
+          <input type="month" id="filter-month">
+        </div>
+        
+        <div class="filter-group">
+          <label for="filter-date">📆 Filter by Date</label>
+          <input type="date" id="filter-date">
+        </div>
+        
+        <div class="filter-group">
+          <label for="filter-employee">👤 Employee Name</label>
+          <input type="text" id="filter-employee" placeholder="Search employee...">
+        </div>
+        
+        <div class="filter-group">
+          <label for="filter-department">🏢 Department</label>
+          <select id="filter-department">
+            <option value="">All Department</option>
+          </select>
+        </div>
+
+        <div class="filter-group" style="display: flex; gap: 10px;">
+          <button class="btn btn-primary" onclick="applyFilters()">🔍 Apply Filter</button>
+          <button class="btn btn-clear" onclick="clearFilters()">✖️ Clear</button>
+        </div>
+      </div>
+      
+      <div class="action-buttons">
+        <button class="btn btn-success" onclick="exportCSV()">📥 Export CSV</button>
+      </div>
+      
+      <div class="stats-bar" style="margin-top: 15px;">
+        <div class="stat-item">
+          <span>Last updated: <strong id="last-updated">--</strong></span>
+        </div>
+        <div class="stat-item">
+          <span>Showing:</span>
+          <span class="stat-badge" id="record-count">0</span>
+          <span>records</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content-section">
+      <div id="spinner" class="spinner"></div>
+      
+      <div id="table-view" style="display:none;">
+        <!-- Add rows per page control -->
+        <div class="table-controls">
+          <label>Show rows:</label>
+          <select id="rows-per-page" onchange="changeRowsPerPage()">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="30" selected>30</option>
+            <option value="40">40</option>
+            <option value="50">50</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+        
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Emp. No</th>
+                <th>Employee Name</th>
+                <th>Dept.</th>
+                <th>Location</th>
+                <th>Purpose</th>
+                <th>Day</th>
+                <th>Checkout Date</th>
+                <th>Checkout Time</th>
+                <th>Checkin Date</th>
+                <th>Checkin Time</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allData = [];
+    let filteredData = [];
+    let rowsPerPage = 30;
+    
+    const tableBody = document.getElementById('table-body');
+    const tableView = document.getElementById('table-view');
+    const spinner = document.getElementById('spinner');
+    const updatedEl = document.getElementById('last-updated');
+    const recordCount = document.getElementById('record-count');
+
+    function formatDate(dateString) {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = date.toLocaleString('en-US', { month: 'short' });
+      const year = date.getFullYear();
+      return `${day} ${month} ${year}`;
+    }
+
+    function formatTime(dateString) {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true 
+      });
+    }
+
+    function formatDay(dateString) {
+      if (!dateString) return 'N/A';
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', { weekday: 'short' });
+    }
+
+    function calculateDuration(checkoutTime, checkinTime) {
+      if (!checkoutTime || !checkinTime) return { text: 'N/A', class: '' };
+      
+      const checkout = new Date(checkoutTime);
+      const checkin = new Date(checkinTime);
+      const seconds = Math.floor((checkin - checkout) / 1000);
+      
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      
+      let className = 'duration-short';
+      if (hours >= 8) className = 'duration-long';
+      else if (hours >= 4) className = 'duration-medium';
+      
+      return { 
+        text: `${hours}h ${minutes}m`,
+        class: className
+      };
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch('/checkout-history');
+        
+        if (res.status === 401 || res.status === 403) {
+          window.location.href = '/dashboard';
+          return;
+        }
+
+        allData = await res.json();
+        
+        populateDepartmentFilter();
+        
+        filteredData = [...allData];
+        renderTable(filteredData);
+        
+        spinner.style.display = 'none';
+        tableView.style.display = 'block';
+
+        const now = new Date();
+        updatedEl.textContent = now.toLocaleTimeString();
+        
+      } catch (err) {
+        console.error('Failed to load history:', err);
+        updatedEl.textContent = 'Error loading data';
+        spinner.style.display = 'none';
+      }
+    }
+
+    function populateDepartmentFilter() {
+      const departments = [...new Set(allData.map(row => row.Department))].sort();
+      const select = document.getElementById('filter-department');
+      
+      departments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        select.appendChild(option);
+      });
+    }
+
+    function renderTable(data) {
+      tableBody.innerHTML = '';
+      recordCount.textContent = data.length;
+      
+      if (data.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="11" class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <div class="empty-state-text">No records found</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
+      const displayData = data.slice(0, rowsPerPage);
+      
+      displayData.forEach(row => {
+        const duration = calculateDuration(row.checkout_time, row.checkin_time);
+        const tr = document.createElement('tr');
+        
+        tr.innerHTML = `
+          <td>${row.Employee_no}</td>
+          <td><strong>${row.Employee_name}</strong></td>
+          <td>${row.Department}</td>
+          <td>${row.Location}</td>
+          <td><strong>${row.Purpose}</strong></td>
+          <td class="day-cell">${formatDay(row.checkout_time)}</td>
+          <td class="date-cell">${formatDate(row.checkout_time)}</td>
+          <td class="time-cell">${formatTime(row.checkout_time)}</td>
+          <td class="date-cell">${formatDate(row.checkin_time)}</td>
+          <td class="time-cell">${formatTime(row.checkin_time)}</td>
+          <td><span class="duration-badge ${duration.class}">${duration.text}</span></td>
+        `;
+        
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function applyFilters() {
+      const month = document.getElementById('filter-month').value;
+      const date = document.getElementById('filter-date').value;
+      const employee = document.getElementById('filter-employee').value.toLowerCase();
+      const department = document.getElementById('filter-department').value;
+      
+      filteredData = allData.filter(row => {
+        let match = true;
+        
+        if (month && row.checkout_time) {
+          const rowMonth = row.checkout_time.substring(0, 7);
+          match = match && rowMonth === month;
+        }
+        
+        if (date && row.checkout_time) {
+          const rowDate = row.checkout_time.substring(0, 10);
+          match = match && rowDate === date;
+        }
+        
+        if (employee) {
+          match = match && row.Employee_name.toLowerCase().includes(employee);
+        }
+        
+        if (department) {
+          match = match && row.Department === department;
+        }
+        
+        return match;
+      });
+      
+      renderTable(filteredData);
+    }
+
+    function clearFilters() {
+      document.getElementById('filter-month').value = '';
+      document.getElementById('filter-date').value = '';
+      document.getElementById('filter-employee').value = '';
+      document.getElementById('filter-department').value = '';
+      
+      filteredData = [...allData];
+      renderTable(filteredData);
+    }
+
+    function changeRowsPerPage() {
+      const value = document.getElementById('rows-per-page').value;
+      rowsPerPage = value === 'all' ? Infinity : parseInt(value);
+      renderTable(filteredData);
+    }
+
+    function exportCSV() {
+      window.location.href = '/export';
+    }
+
+    function logout() {
+      window.location.href = '/hr-logout';
+    }
+
+    loadHistory();
+    setInterval(loadHistory, 60000);
+  </script>
+</body>
+</html>
